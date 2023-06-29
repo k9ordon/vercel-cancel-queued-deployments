@@ -4,11 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "DEBUG=vercel:deployments node index.js"
   },
   "author": "Klemens Gordon",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.4.0"
+    "axios": "^1.4.0",
+    "debug": "^4.3.4",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.1"
   }
 }
