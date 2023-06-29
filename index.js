@@ -1,65 +1,73 @@
-// Import required modules
 const dotenv = require('dotenv');
-const debug = require('debug')('vercel:deployments');
-
-// Load environment variables from .env file
 dotenv.config();
 
-// Vercel API endpoint
-const API_URL = 'https://api.vercel.com/v5/now/deployments';
 
-async function fetchDeployments() {
-  const API_URL = `https://api.vercel.com/v5/now/deployments?teamId=${process.env.TEAM_ID}`;
+const axios = require('axios');
+const inquirer = require('inquirer');
+const { table } = require('table');
+const chalk = require('chalk');
+const clear = require('clear');
 
-  debug('Fetching deployments from Vercel...');
-
-  const response = await fetch(API_URL, {
-    headers: {
-      'Authorization': `Bearer ${process.env.VERCEL_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    debug('Failed to fetch deployments. Response status:', response.status);
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.deployments;
-}
-
-// Function to filter queued deployments
-function filterQueuedDeployments(deployments) {
-  debug('Filtering queued deployments...');
-
-  return deployments.filter(deployment => deployment.state === 'QUEUED');
-}
-
-// Main function to list all queued deployments
-async function listQueuedDeployments() {
+const fetchDeployments = async () => {
   try {
-    const deployments = await fetchDeployments();
-    const queuedDeployments = filterQueuedDeployments(deployments);
-
-    // Sort by created date
-    queuedDeployments.sort((a, b) => b.created - a.created);
-
-    // Format and print each queued deployment
-    queuedDeployments.forEach(deployment => {
-      const projectName = deployment.name;
-      const branch = deployment.meta.githubCommitRef;
-      const creationDate = new Date(deployment.created).toLocaleString();
-
-      console.log(`Project: ${projectName}`);
-      console.log(`Branch: ${branch}`);
-      console.log(`Created: ${creationDate}`);
-      console.log('-----------------------------------');
+    const response = await axios.get(`https://api.vercel.com/v5/now/deployments?teamId=${process.env.TEAM_ID}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.VERCEL_TOKEN}`
+      }
     });
+    return response.data.deployments;
   } catch (error) {
-    console.error('An error occurred:', error);
+    console.error(error);
   }
-}
+};
 
-// Call the main function
-listQueuedDeployments();
+const displayDeployments = (deployments) => {
+  const data = deployments.map((deployment) => [
+    deployment.id,
+    deployment.name,
+    deployment.url,
+    deployment.state
+  ]);
+
+  console.log(table([['ID', 'Name', 'URL', 'State'], ...data]));
+};
+
+const cancelDeployments = async (deploymentIds) => {
+  const cancelPromises = deploymentIds.map((id) =>
+    axios.delete(`https://api.vercel.com/v5/now/deployments/${id}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.VERCEL_TOKEN}`
+      }
+    })
+  );
+
+  await Promise.all(cancelPromises);
+};
+
+const main = async () => {
+  while (true) {
+    clear();
+    console.log(chalk.blue('Fetching deployments...'));
+    const deployments = await fetchDeployments();
+    displayDeployments(deployments);
+
+    const { deploymentIds } = await inquirer.prompt([{
+      type: 'checkbox',
+      message: 'Select deployments to cancel',
+      name: 'deploymentIds',
+      choices: deployments.map((deployment) => ({
+        name: `${deployment.name} (${deployment.state})`,
+        value: deployment.id,
+      })),
+    }]);
+
+    if (deploymentIds.length > 0) {
+      console.log(chalk.yellow('Cancelling deployments...'));
+      await cancelDeployments(deploymentIds);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+  }
+};
+
+main();
