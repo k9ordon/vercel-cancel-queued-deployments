@@ -15,7 +15,7 @@ const REFETCH_INTERVAL = process.env.REFETCH_INTERVAL || 5000;
 const fetchDeployments = async (page = 0) => {
   const spinner = ora('Fetching deployments...').start();
   try {
-    const response = await axios.get(`https://api.vercel.com/v5/now/deployments?teamId=${process.env.TEAM_ID}&state=QUEUED&limit=100&page=${page}`, {
+    const response = await axios.get(`https://api.vercel.com/v5/now/deployments?teamId=${process.env.TEAM_ID}&state=QUEUED,BUILDING&limit=100&page=${page}`, {
       headers: {
         Authorization: `Bearer ${process.env.VERCEL_TOKEN}`
       }
