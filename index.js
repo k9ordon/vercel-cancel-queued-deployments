@@ -123,13 +123,31 @@ const interactWithUserAndCancelDeployments = async (deployments) => {
     default: branches.filter(branch => ![undefined, 'main', 'production'].includes(branch))
   }]);
 
-  const deploymentIdsToCancel = deployments.filter(deployment => selectedBranches.includes(deployment.meta.githubCommitRef)).map(deployment => deployment.uid);
+  // Get Project-Branch combinations based on selected branches
+  let projectBranchCombinations = deployments
+    .filter(deployment => selectedBranches.includes(deployment.meta.githubCommitRef))
+    .map(deployment => `${deployment.meta.githubCommitRef} | ${deployment.name}`);
+
+  projectBranchCombinations = [...new Set(projectBranchCombinations)]; // Remove duplicates
+
+  const { selectedCombinations } = await inquirer.prompt([{
+    type: 'checkbox',
+    message: `Select project-branch combinations to cancel deployments (${projectBranchCombinations.length} options available)`,
+    name: 'selectedCombinations',
+    choices: projectBranchCombinations,
+    default: projectBranchCombinations
+  }]);
+
+  // Cancel deployments that match the selected combinations
+  const deploymentIdsToCancel = deployments
+    .filter(deployment => selectedCombinations.includes(`${deployment.meta.githubCommitRef} | ${deployment.name}`))
+    .map(deployment => deployment.uid);
 
   if (deploymentIdsToCancel.length > 0) {
     console.log(chalk.yellow('Cancelling deployments...'));
     await cancelDeployments(deploymentIdsToCancel, deployments);
   } else {
-    console.log(chalk.yellow('No deployment branches to cancel found.'));
+    console.log(chalk.yellow('No deployments canceled.'));
   }
 };
 
